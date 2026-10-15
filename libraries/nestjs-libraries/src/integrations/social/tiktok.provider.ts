@@ -354,6 +354,8 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
         )}` +
         `&state=${state}` +
         `&response_type=code` +
+        // smd: sempre mostra a tela de consentimento, mesmo para conta que já autorizou (screencast da auditoria)
+        `&disable_auto_auth=1` +
         `&scope=${encodeURIComponent(this.scopes.join(','))}`,
       codeVerifier: state,
       state,

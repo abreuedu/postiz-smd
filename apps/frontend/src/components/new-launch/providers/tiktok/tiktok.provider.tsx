@@ -2,7 +2,9 @@
 
 import {
   FC,
+  useEffect,
   useMemo,
+  useState,
 } from 'react';
 import {
   PostComment,
@@ -15,6 +17,7 @@ import { Checkbox } from '@gitroom/react/form/checkbox';
 import clsx from 'clsx';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { useIntegration } from '@gitroom/frontend/components/launches/helpers/use.integration';
+import { useCustomProviderFunction } from '@gitroom/frontend/components/launches/helpers/use.custom.provider.function';
 import { Input } from '@gitroom/react/form/input';
 import { TiktokPreview } from '@gitroom/frontend/components/new-launch/providers/tiktok/tiktok.preview';
 import { TikTokMusicSelector } from '@gitroom/frontend/components/new-launch/providers/tiktok/tiktok.music';
@@ -44,6 +47,26 @@ const TikTokSettings: FC<{
   const brand_content_toggle = watch('brand_content_toggle');
   const content_posting_method = watch('content_posting_method');
   const isUploadMode = content_posting_method === 'UPLOAD';
+
+  // TikTok Direct Post UX guidelines: show who is posting, offer only the
+  // privacy levels TikTok returns for this creator (no default), and grey out
+  // interactions the creator turned off in the TikTok app.
+  const customFunc = useCustomProviderFunction();
+  const [creator, setCreator] = useState<{
+    nickname: string;
+    username: string;
+    privacyLevelOptions: string[];
+    commentDisabled: boolean;
+    duetDisabled: boolean;
+    stitchDisabled: boolean;
+  } | null>(null);
+  useEffect(() => {
+    if (isBusiness || !integration?.id) return;
+    customFunc
+      .get('creatorInfo')
+      .then((data) => setCreator(data?.privacyLevelOptions ? data : null))
+      .catch(() => setCreator(null));
+  }, [integration?.id, isBusiness]);
 
   // TikTok ignores every setting except the title / content when the posting
   // method is UPLOAD, so we hide them rather than pretend they apply. The fields
@@ -83,6 +106,12 @@ const TikTokSettings: FC<{
       label: t('self_only', 'Self only'),
     },
   ];
+  const allowedPrivacy = privacyLevel.filter(
+    (item) =>
+      (!creator || creator.privacyLevelOptions.includes(item.value)) &&
+      // TikTok does not allow branded content to be private
+      !(brand_content_toggle && item.value === 'SELF_ONLY')
+  );
   const contentPostingMethod = [
     {
       value: 'DIRECT_POST',
@@ -133,16 +162,21 @@ const TikTokSettings: FC<{
         </div>
       )}
       {isTitle && <Input label="Title" {...register('title')} maxLength={89} />}
+      {creator && (
+        <div className="text-[14px] mb-[18px]">
+          {t('tiktok_posting_as', 'Posting to TikTok as')}{' '}
+          <strong>{creator.nickname}</strong>
+          {creator.username ? ` (@${creator.username})` : ''}
+        </div>
+      )}
       <div className={directPostOnly}>
         <Select
           label={t('label_who_can_see_this_video', 'Who can see this video?')}
           disabled={isUploadMode}
-          {...register('privacy_level', {
-            value: 'PUBLIC_TO_EVERYONE',
-          })}
+          {...register('privacy_level')}
         >
           <option value="">{t('select', 'Select')}</option>
-          {privacyLevel.map((item) => (
+          {allowedPrivacy.map((item) => (
             <option key={item.value} value={item.value}>
               {item.label}
             </option>
@@ -231,7 +265,7 @@ const TikTokSettings: FC<{
           <Checkbox
             variant="hollow"
             label={t('label_duet', 'Allow Duet')}
-            disabled={isUploadMode}
+            disabled={isUploadMode || !!creator?.duetDisabled}
             {...register('duet', {
               value: false,
             })}
@@ -239,7 +273,7 @@ const TikTokSettings: FC<{
           <Checkbox
             label={t('label_stitch', 'Allow Stitch')}
             variant="hollow"
-            disabled={isUploadMode}
+            disabled={isUploadMode || !!creator?.stitchDisabled}
             {...register('stitch', {
               value: false,
             })}
@@ -258,7 +292,7 @@ const TikTokSettings: FC<{
           <Checkbox
             label={t('label_comments', 'Allow Comments')}
             variant="hollow"
-            disabled={isUploadMode}
+            disabled={isUploadMode || !!creator?.commentDisabled}
             {...register('comment', {
               value: true,
             })}
@@ -346,14 +380,23 @@ const TikTokSettings: FC<{
               'This video will be classified as Branded Content.'
             )}
           </div>
-          {(brand_organic_toggle || brand_content_toggle) && (
-            <div className="my-[10px] text-[14px] text-balance">
+          {disclose && !brand_organic_toggle && !brand_content_toggle && (
+            <div className="my-[10px] text-[14px] text-red-600">
+              {t(
+                'tiktok_disclosure_choose_one',
+                'Choose "Your brand", "Branded content" or both to continue.'
+              )}
+            </div>
+          )}
+        </div>
+        {!isUploadMode && (
+            <div className="mt-[20px] text-[14px] text-balance">
               {t(
                 'by_posting_you_agree_to_tiktoks',
                 "By posting, you agree to TikTok's"
               )}
               {[
-                brand_organic_toggle || brand_content_toggle ? (
+                (
                   <a
                     target="_blank"
                     className="text-[#B69DEC] hover:underline"
@@ -361,7 +404,7 @@ const TikTokSettings: FC<{
                   >
                     {t('music_usage_confirmation', 'Music Usage Confirmation')}
                   </a>
-                ) : undefined,
+                ),
                 brand_content_toggle ? <> {t('and', 'and')} </> : undefined,
                 brand_content_toggle ? (
                   <a
@@ -375,7 +418,6 @@ const TikTokSettings: FC<{
               ].filter((f) => f)}
             </div>
           )}
-        </div>
       </div>
     </div>
   );

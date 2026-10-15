@@ -1,5 +1,6 @@
 import {
-  IsBoolean, ValidateIf, IsIn, IsString, MaxLength, IsOptional, IsDefined, IsNumber, Min, Max, ValidateNested
+  IsBoolean, ValidateIf, IsIn, IsString, MaxLength, IsOptional, IsDefined, IsNumber, Min, Max, ValidateNested,
+  Validate, ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JSONSchema } from 'class-validator-jsonschema';
@@ -68,6 +69,24 @@ export class TikTokLocation {
 // them (its Content Posting API has no music_sound_info / location fields).
 // Fields stay required here (existing clients depend on it); the constraints are
 // documented, not enforced.
+// TikTok Direct Post UX guidelines: with "Disclose video content" on, the user
+// must pick "Your brand", "Branded content" or both before posting.
+@ValidatorConstraint({ name: 'tiktokDisclosure' })
+class TikTokDisclosure implements ValidatorConstraintInterface {
+  validate(_: any, args: ValidationArguments) {
+    const p = args.object as any;
+    return !(
+      p.disclose === true &&
+      p.content_posting_method !== 'UPLOAD' &&
+      !p.brand_organic_toggle &&
+      !p.brand_content_toggle
+    );
+  }
+  defaultMessage() {
+    return 'Disclose video content is on: choose "Your brand", "Branded content" or both';
+  }
+}
+
 export class TikTokDto {
   @ValidateIf((p) => p.title)
   @MaxLength(90)
@@ -77,6 +96,9 @@ export class TikTokDto {
   })
   title: string;
 
+  // No default privacy (TikTok UX guidelines): required for direct posts only,
+  // since TikTok discards it on UPLOAD.
+  @ValidateIf((p) => p.content_posting_method !== 'UPLOAD')
   @IsIn([
     'PUBLIC_TO_EVERYONE',
     'MUTUAL_FOLLOW_FRIENDS',
@@ -175,4 +197,13 @@ export class TikTokDto {
       'Only use "UPLOAD" when the user explicitly asks to review or edit the post inside the TikTok app before publishing.',
   })
   content_posting_method: 'DIRECT_POST' | 'UPLOAD';
+
+  @IsOptional()
+  @IsBoolean()
+  @Validate(TikTokDisclosure)
+  @JSONSchema({
+    description:
+      'Post screen only: true when "Disclose video content" is on. Then brand_organic_toggle or brand_content_toggle must be true.',
+  })
+  disclose?: boolean;
 }

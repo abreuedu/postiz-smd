@@ -294,7 +294,8 @@ const TikTokSettings: FC<{
             variant="hollow"
             disabled={isUploadMode || !!creator?.commentDisabled}
             {...register('comment', {
-              value: true,
+              // TikTok UX guidelines: no interaction is on by default
+              value: false,
             })}
           />
           <Checkbox
@@ -394,7 +395,7 @@ const TikTokSettings: FC<{
               {t(
                 'by_posting_you_agree_to_tiktoks',
                 "By posting, you agree to TikTok's"
-              )}
+              )}{' '}
               {[
                 (
                   <a

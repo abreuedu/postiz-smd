@@ -56,6 +56,10 @@ export class InstagramDto {
   @IsOptional()
   is_trial_reel?: boolean;
 
+  // SMD: autodeclaração de IA da Meta (is_ai_generated), aparece como "AI info"
+  @IsOptional()
+  is_ai_generated?: boolean;
+
   @IsIn(['MANUAL', 'SS_PERFORMANCE'])
   @IsOptional()
   graduation_strategy?: 'MANUAL' | 'SS_PERFORMANCE';

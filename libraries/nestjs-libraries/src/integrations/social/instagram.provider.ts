@@ -788,9 +788,16 @@ export class InstagramProvider
               )}`
             : ``;
 
+        // SMD: a Meta não aceita is_ai_generated em item de carrossel
+        const aiGenerated =
+          this.assetBoolean(firstPost.settings.is_ai_generated) &&
+          firstPost?.media?.length === 1
+            ? `&is_ai_generated=true`
+            : ``;
+
         const { id: photoId } = await (
           await this.fetch(
-            `https://${type}/${META_GRAPH_API_VERSION}/${id}/media?${mediaType}${isCarousel}${itemCollaborators}${trialParams}${audioConfiguration}&access_token=${accessToken}${caption}`,
+            `https://${type}/${META_GRAPH_API_VERSION}/${id}/media?${mediaType}${isCarousel}${itemCollaborators}${trialParams}${audioConfiguration}${aiGenerated}&access_token=${accessToken}${caption}`,
             {
               method: 'POST',
             }
